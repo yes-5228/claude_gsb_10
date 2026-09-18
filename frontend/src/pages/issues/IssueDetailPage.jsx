@@ -137,6 +137,16 @@ export default function IssueDetailPage() {
                     label: '关联巡查记录',
                     value: issue.inspection_id ? `#${issue.inspection_id}` : '无',
                   },
+                  {
+                    label: '所属保障',
+                    value: issue.assurance ? (
+                      <Link to={`/assurances/${issue.assurance.id}`}>
+                        {issue.assurance.name}（{issue.assurance.level}）
+                      </Link>
+                    ) : (
+                      '非保障期'
+                    ),
+                  },
                   { label: '闭环时间', value: formatDateTime(issue.closed_at) },
                   { label: '问题描述', value: issue.description || '无' },
                 ]}

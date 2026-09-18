@@ -43,6 +43,16 @@ export const STATUS_TONES = {
   已关闭: 'tag-neutral',
   正常: 'tag-success',
   发现问题: 'tag-danger',
+  筹备中: 'tag-info',
+  保障中: 'tag-danger',
+  已结束: 'tag-success',
+  已取消: 'tag-neutral',
+};
+
+export const LEVEL_TONES = {
+  一级保障: 'tag-danger',
+  二级保障: 'tag-warning',
+  三级保障: 'tag-info',
 };
 
 export const SEVERITY_TONES = {
@@ -57,6 +67,10 @@ export function statusTone(status) {
 
 export function severityTone(severity) {
   return SEVERITY_TONES[severity] || 'tag-neutral';
+}
+
+export function levelTone(level) {
+  return LEVEL_TONES[level] || 'tag-neutral';
 }
 
 export function scoreTone(score) {

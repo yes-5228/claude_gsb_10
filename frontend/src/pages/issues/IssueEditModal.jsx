@@ -1,9 +1,11 @@
 import { useState } from 'react';
 
+import { assuranceApi } from '../../api/assurance.js';
 import { issueApi } from '../../api/issues.js';
 import Field from '../../components/Field.jsx';
 import Modal from '../../components/Modal.jsx';
 import { useToast } from '../../components/Toast.jsx';
+import { useAsync } from '../../hooks/useAsync.js';
 import { useDictionaries } from '../../hooks/useDictionaries.js';
 import { toDateTimeInput } from '../../utils/format.js';
 
@@ -17,9 +19,20 @@ export default function IssueEditModal({ issue, onClose, onSaved }) {
     severity: issue.severity,
     assignee: issue.assignee || '',
     deadline: issue.deadline ? toDateTimeInput(issue.deadline) : '',
+    assurance_id: issue.assurance_id ?? '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  const { data: assuranceRows } = useAsync(
+    () => assuranceApi.list({ page_size: 100 }).then((res) => res.items).catch(() => []),
+    [],
+  );
+  // 已归属的保障若不在可选项中（如已结束），补当前项用于回显
+  const options = assuranceRows || [];
+  const current = issue.assurance;
+  const assuranceOptions =
+    current && !options.some((item) => item.id === current.id) ? [current, ...options] : options;
 
   const setValue = (key) => (event) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
@@ -32,6 +45,7 @@ export default function IssueEditModal({ issue, onClose, onSaved }) {
       await issueApi.update(issue.id, {
         ...form,
         deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
+        assurance_id: form.assurance_id === '' ? null : Number(form.assurance_id),
       });
       toast.success('问题信息已更新');
       onSaved();
@@ -82,6 +96,16 @@ export default function IssueEditModal({ issue, onClose, onSaved }) {
         </Field>
         <Field label="整改期限">
           <input type="datetime-local" value={form.deadline} onChange={setValue('deadline')} />
+        </Field>
+        <Field label="所属保障" hint="仅可改派到包含该公厕的保障">
+          <select value={form.assurance_id} onChange={setValue('assurance_id')}>
+            <option value="">不归属保障</option>
+            {assuranceOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}（{item.level}·{item.status}）
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="问题描述" full>
           <textarea rows="3" value={form.description} onChange={setValue('description')} />

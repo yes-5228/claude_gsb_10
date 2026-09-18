@@ -9,6 +9,7 @@ from app.core.constants import OPEN_ISSUE_STATUSES
 from app.core.exceptions import ConflictError, DomainError, NotFoundError
 from app.models import Inspection, Issue, Restroom
 from app.schemas.restroom import RestroomCreate, RestroomDetail, RestroomOut, RestroomUpdate
+from app.services import assurance_service
 
 SORTABLE_FIELDS = {
     "code": Restroom.code,
@@ -112,6 +113,7 @@ def delete_restroom(db: Session, restroom_id: int, *, force: bool = False) -> No
             f"该公厕已有 {inspection_count} 条巡查记录、{issue_count} 条问题记录，"
             "确需删除请使用 force=true"
         )
+    assurance_service.detach_restroom(db, restroom_id)
     db.delete(restroom)
     db.commit()
 

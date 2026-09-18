@@ -14,7 +14,7 @@ from app.core.constants import (
 from app.core.exceptions import DomainError, NotFoundError
 from app.models import Inspection, Issue, RectificationRecord, Restroom
 from app.schemas.issue import IssueCreate, IssueOut, IssueStatusUpdate, IssueUpdate
-from app.services import restroom_service
+from app.services import assurance_service, restroom_service
 
 SORTABLE_FIELDS = {
     "report_time": Issue.report_time,
@@ -69,6 +69,7 @@ def list_issues(
     *,
     restroom_id: int | None = None,
     inspection_id: int | None = None,
+    assurance_id: int | None = None,
     district: str | None = None,
     status: str | None = None,
     statuses: list[str] | None = None,
@@ -92,6 +93,8 @@ def list_issues(
         stmt = stmt.where(Issue.restroom_id == restroom_id)
     if inspection_id:
         stmt = stmt.where(Issue.inspection_id == inspection_id)
+    if assurance_id is not None:
+        stmt = stmt.where(Issue.assurance_id == assurance_id)
     if status:
         stmt = stmt.where(Issue.status == status)
     if statuses:
@@ -143,11 +146,27 @@ def create_issue(db: Session, payload: IssueCreate) -> Issue:
         if inspection.restroom_id != payload.restroom_id:
             raise DomainError("关联的巡查记录与所选公厕不一致")
 
-    data = _values(payload.model_dump(exclude={"inspection_id", "report_time", "initial_remark"}))
+    report_time = payload.report_time or datetime.now()
+    if payload.assurance_id is not None:
+        assurance = assurance_service.get_assurance(db, payload.assurance_id)
+        assurance_service.assert_target(assurance, payload.restroom_id)
+        if not (assurance.start_date <= report_time.date() <= assurance.end_date):
+            raise DomainError("上报时间不在所选保障的保障时段内")
+        assurance_id = assurance.id
+    else:
+        matched = assurance_service.match_assurance(db, payload.restroom_id, report_time)
+        assurance_id = matched.id if matched is not None else None
+
+    data = _values(
+        payload.model_dump(
+            exclude={"inspection_id", "report_time", "initial_remark", "assurance_id"}
+        )
+    )
     issue = Issue(
         code=_next_code(db),
         inspection_id=payload.inspection_id,
-        report_time=payload.report_time or datetime.now(),
+        assurance_id=assurance_id,
+        report_time=report_time,
         status=IssueStatus.PENDING.value,
         **data,
     )
@@ -172,6 +191,12 @@ def update_issue(db: Session, issue_id: int, payload: IssueUpdate) -> Issue:
     issue_data = payload.model_dump(exclude_unset=True)
     if "images" in issue_data and payload.images is not None:
         issue_data["images"] = list(payload.images)
+    if "assurance_id" in issue_data:
+        assurance_id = issue_data.pop("assurance_id")
+        if assurance_id is not None:
+            assurance = assurance_service.get_assurance(db, assurance_id)
+            assurance_service.assert_target(assurance, issue.restroom_id)
+        issue.assurance_id = assurance_id
     for key, value in _values(issue_data).items():
         setattr(issue, key, value)
     db.commit()

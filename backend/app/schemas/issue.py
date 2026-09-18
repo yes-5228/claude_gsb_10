@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.constants import IssueCategory, IssueSeverity, IssueStatus
+from app.schemas.assurance import AssuranceBrief
 from app.schemas.restroom import RestroomBrief
 
 
@@ -36,6 +37,7 @@ class IssueBase(BaseModel):
 class IssueCreate(IssueBase):
     restroom_id: int
     inspection_id: int | None = Field(default=None, description="关联的巡查记录")
+    assurance_id: int | None = Field(default=None, description="所属保障，留空按时段与重点对象自动归属")
     report_time: datetime | None = Field(default=None, description="上报时间，留空取当前时间")
     initial_remark: str | None = Field(default=None, max_length=500, description="上报说明")
 
@@ -48,6 +50,7 @@ class IssueUpdate(BaseModel):
     assignee: str | None = Field(default=None, max_length=60)
     deadline: datetime | None = None
     images: list[str] | None = None
+    assurance_id: int | None = Field(default=None, description="改派所属保障，显式传 null 解除归属")
 
 
 class IssueStatusUpdate(BaseModel):
@@ -66,6 +69,8 @@ class IssueOut(BaseModel):
     restroom_id: int
     restroom: RestroomBrief | None = None
     inspection_id: int | None = None
+    assurance_id: int | None = None
+    assurance: AssuranceBrief | None = None
     title: str
     description: str
     category: str

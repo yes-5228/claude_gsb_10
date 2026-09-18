@@ -21,6 +21,31 @@ class Shift(StrEnum):
     NIGHT = "晚班"
 
 
+class AssuranceType(StrEnum):
+    """保障类型：节假日 / 重大活动 / 其他。"""
+
+    HOLIDAY = "节假日保障"
+    EVENT = "重大活动保障"
+    OTHER = "其他保障"
+
+
+class AssuranceLevel(StrEnum):
+    """保障等级，等级越高加密频次越高。"""
+
+    LEVEL1 = "一级保障"
+    LEVEL2 = "二级保障"
+    LEVEL3 = "三级保障"
+
+
+class AssuranceStatus(StrEnum):
+    """保障生命周期状态。"""
+
+    PREPARING = "筹备中"
+    ACTIVE = "保障中"
+    FINISHED = "已结束"
+    CANCELLED = "已取消"
+
+
 class InspectionResult(StrEnum):
     NORMAL = "正常"
     ABNORMAL = "发现问题"
@@ -97,3 +122,63 @@ OPEN_ISSUE_STATUSES: list[str] = [
 
 # 单检查项低于该分数视为不合格项
 INSPECTION_ITEM_PROBLEM_THRESHOLD = 6
+
+
+# --------------------------------------------------------------------------- #
+# 节假日 / 重大活动保障
+# --------------------------------------------------------------------------- #
+
+# 保障状态流转规则：当前状态 -> 允许流转到的状态
+ASSURANCE_TRANSITIONS: dict[str, list[str]] = {
+    AssuranceStatus.PREPARING: [AssuranceStatus.ACTIVE, AssuranceStatus.CANCELLED],
+    AssuranceStatus.ACTIVE: [AssuranceStatus.FINISHED, AssuranceStatus.CANCELLED],
+    AssuranceStatus.FINISHED: [],
+    AssuranceStatus.CANCELLED: [],
+}
+
+# 各状态流转对应的动作名称，用于生成保障操作记录
+ASSURANCE_TRANSITION_ACTIONS: dict[tuple[str, str], str] = {
+    (AssuranceStatus.PREPARING, AssuranceStatus.ACTIVE): "启动保障",
+    (AssuranceStatus.PREPARING, AssuranceStatus.CANCELLED): "取消保障",
+    (AssuranceStatus.ACTIVE, AssuranceStatus.FINISHED): "结束保障",
+    (AssuranceStatus.ACTIVE, AssuranceStatus.CANCELLED): "终止保障",
+}
+
+# 各等级保障下，单座重点公厕每日巡查次数及按班次的分配
+ASSURANCE_SHIFT_PLAN: dict[str, dict] = {
+    AssuranceLevel.LEVEL1.value: {
+        "daily": 6,
+        "by_shift": {Shift.MORNING.value: 2, Shift.MIDDLE.value: 2, Shift.NIGHT.value: 2},
+    },
+    AssuranceLevel.LEVEL2.value: {
+        "daily": 4,
+        "by_shift": {Shift.MORNING.value: 2, Shift.MIDDLE.value: 1, Shift.NIGHT.value: 1},
+    },
+    AssuranceLevel.LEVEL3.value: {
+        "daily": 3,
+        "by_shift": {Shift.MORNING.value: 1, Shift.MIDDLE.value: 1, Shift.NIGHT.value: 1},
+    },
+}
+
+# 班次排布顺序
+ASSURANCE_SHIFT_ORDER: list[str] = [Shift.MORNING.value, Shift.MIDDLE.value, Shift.NIGHT.value]
+
+# 保障等级排序权重，数值越小等级越高，多保障重叠时优先归属高等级
+ASSURANCE_LEVEL_RANK: dict[str, int] = {
+    AssuranceLevel.LEVEL1.value: 1,
+    AssuranceLevel.LEVEL2.value: 2,
+    AssuranceLevel.LEVEL3.value: 3,
+}
+
+# 仍可被问题自动归属命中的保障状态
+ASSURANCE_ACTIVE_STATUSES: list[str] = [AssuranceStatus.PREPARING, AssuranceStatus.ACTIVE]
+
+# 重点对象来源
+TARGET_SOURCE_DISTRICT = "区域纳入"
+TARGET_SOURCE_MANUAL = "手动指定"
+
+# 每日每厕巡查次数允许手动微调的范围
+ASSURANCE_DAILY_MIN = 3
+ASSURANCE_DAILY_MAX = 12
+# 单次保障最长天数，控制值守岗位的笛卡尔规模
+ASSURANCE_MAX_DAYS = 62

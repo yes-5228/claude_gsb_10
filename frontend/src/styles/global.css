@@ -218,6 +218,10 @@ h4 {
   border-left-color: var(--info);
 }
 
+.stat-card.is-success {
+  border-left-color: var(--success);
+}
+
 .stat-card .label {
   color: var(--text-muted);
   font-size: 12.5px;
@@ -848,5 +852,38 @@ table.data-table td.wrap {
   }
   .nav-item {
     white-space: nowrap;
+  }
+}
+
+.assurance-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  font-size: 13px;
+}
+
+.assurance-banner:hover {
+  background: var(--primary-soft);
+}
+
+.assurance-banner .assurance-name {
+  min-width: 220px;
+}
+
+@media print {
+  .sidebar,
+  .topbar .action-group,
+  .pagination,
+  .filter-bar,
+  .btn {
+    display: none !important;
+  }
+  .main {
+    margin: 0 !important;
   }
 }

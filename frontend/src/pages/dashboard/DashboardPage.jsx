@@ -1,11 +1,14 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { statsApi } from '../../api/stats.js';
 import BarList from '../../components/BarList.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import TrendChart from '../../components/TrendChart.jsx';
+import { AssuranceLevelTag, AssuranceStatusTag } from '../../components/Tags.jsx';
 import { useAsync } from '../../hooks/useAsync.js';
+import { formatDate } from '../../utils/format.js';
 import {
   CategoryPanel,
   DistrictPanel,
@@ -50,6 +53,40 @@ export default function DashboardPage() {
 
         {overview ? (
           <>
+            {data.active_assurances?.length ? (
+              <section className="card" style={{ borderLeft: '4px solid #dc2626' }}>
+                <div className="card-title">
+                  <h3>🛡️ 保障值守</h3>
+                  <span className="hint">进行中及 7 日内即将启动的保障</span>
+                </div>
+                <div className="bar-list">
+                  {data.active_assurances.map((item) => (
+                    <Link
+                      key={item.id}
+                      to={`/assurances/${item.id}`}
+                      className="assurance-banner"
+                    >
+                      <span className="assurance-name">
+                        <strong>{item.name}</strong>
+                        <span className="muted"> {item.code}</span>
+                      </span>
+                      <span className="inline">
+                        <AssuranceLevelTag level={item.level} />
+                        <AssuranceStatusTag status={item.status} />
+                      </span>
+                      <span className="muted">
+                        {formatDate(item.start_date)} ~ {formatDate(item.end_date)}
+                      </span>
+                      <span className="muted">重点公厕 {item.target_count} 座</span>
+                      <span className={item.issue_open ? 'tag tag-danger' : 'tag tag-success'}>
+                        岗位完成率 {item.duty_completion_rate}% · 未闭环 {item.issue_open}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             <div className="stat-grid">
               <StatCard
                 label="在册公厕"

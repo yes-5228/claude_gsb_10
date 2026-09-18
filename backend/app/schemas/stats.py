@@ -1,14 +1,29 @@
 """统计看板数据结构。"""
 
+from datetime import date
+
 from pydantic import BaseModel, Field
 
+from app.schemas.common import NameValue
 from app.schemas.inspection import InspectionOut
 from app.schemas.issue import IssueOut
 
+__all__ = ["NameValue"]
 
-class NameValue(BaseModel):
+
+class ActiveAssuranceBrief(BaseModel):
+    """首页横幅使用的进行中保障简要。"""
+
+    id: int
+    code: str
     name: str
-    value: float
+    level: str
+    status: str
+    start_date: date
+    end_date: date
+    target_count: int = 0
+    duty_completion_rate: float = 0.0
+    issue_open: int = 0
 
 
 class OverviewStats(BaseModel):
@@ -69,3 +84,4 @@ class DashboardStats(BaseModel):
     top_restrooms: list[RestroomRankItem] = Field(default_factory=list)
     recent_issues: list[IssueOut] = Field(default_factory=list)
     recent_inspections: list[InspectionOut] = Field(default_factory=list)
+    active_assurances: list[ActiveAssuranceBrief] = Field(default_factory=list)

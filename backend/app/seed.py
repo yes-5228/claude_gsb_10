@@ -1,7 +1,7 @@
 """演示数据生成：首次启动时写入，便于快速体验各模块。"""
 
 import random
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -190,7 +190,170 @@ def seed_database(db: Session, *, reset: bool = False) -> int:
         created += 1
         _advance_issue(db, issue.id, age_days, rng)
 
+    _seed_assurances(db, now)
+
     return created
+
+
+def _seed_assurances(db: Session, now: datetime) -> None:
+    """节假日/重大活动保障演示数据：一个进行中的节假日保障、一个已结束并出具小结的活动保障。"""
+    from app.core.constants import AssuranceLevel, AssuranceStatus, AssuranceType
+    from app.schemas.assurance import AssuranceAction, AssuranceCreate
+    from app.services import assurance_service
+
+    today = now.date()
+
+    # 进行中：节假日一级保障，覆盖城东、城西重点区域
+    holiday = assurance_service.create_assurance(
+        db,
+        AssuranceCreate(
+            name=f"{today.year}年节假日重点区域保障",
+            assurance_type=AssuranceType.HOLIDAY,
+            level=AssuranceLevel.LEVEL1,
+            start_date=today - timedelta(days=2),
+            end_date=today + timedelta(days=5),
+            districts=["城东区", "城西区"],
+            requirements=[
+                "重点公厕每班次巡查不少于 2 次，随脏随保",
+                "洗手液、厕纸等耗材备货量翻倍",
+                "安排专人定点值守，发现问题 30 分钟内处置",
+                "每日 18:00 前报送保障日报",
+            ],
+            contact="值班室 周建国",
+            remark="覆盖节假日客流高峰，重点关注交通枢纽与商圈周边公厕",
+        ),
+    )
+    assurance_service.change_status(
+        db,
+        holiday.id,
+        AssuranceStatus.ACTIVE,
+        AssuranceAction(operator="值班长 周建国", remark="保障正式启动"),
+    )
+    assurance_service.relink_issues(db, holiday.id)
+
+    # 已结束：重大活动二级保障，结束时自动归集问题并生成小结
+    event = assurance_service.create_assurance(
+        db,
+        AssuranceCreate(
+            name="滨江新区秋季运动赛事保障",
+            assurance_type=AssuranceType.EVENT,
+            level=AssuranceLevel.LEVEL2,
+            start_date=today - timedelta(days=12),
+            end_date=today - timedelta(days=8),
+            districts=["滨江新区"],
+            requirements=["赛事时段每 2 小时巡查一次", "加强体育中心周边公厕通风除臭"],
+            contact="赛事保障组 林楠",
+        ),
+    )
+    _seed_event_issues(db, event.id, event.start_date)
+    assurance_service.change_status(
+        db,
+        event.id,
+        AssuranceStatus.ACTIVE,
+        AssuranceAction(operator="林楠", remark="赛事保障启动"),
+    )
+    assurance_service.change_status(
+        db,
+        event.id,
+        AssuranceStatus.FINISHED,
+        AssuranceAction(operator="值班长 周建国", remark="赛事结束，保障圆满完成"),
+    )
+
+
+def _seed_event_issues(db: Session, event_id: int, start: date) -> None:
+    """为已结束的赛事保障补充落在其窗口内的问题（含未闭环超期与已闭环），便于小结演示。"""
+    from sqlalchemy import select
+
+    from app.core.constants import IssueCategory, IssueSeverity, IssueStatus
+    from app.models import Restroom
+    from app.schemas.issue import IssueCreate, IssueStatusUpdate
+
+    rooms = list(
+        db.scalars(
+            select(Restroom)
+            .where(Restroom.district == "滨江新区")
+            .order_by(Restroom.id)
+        )
+    )
+    if len(rooms) < 2:
+        return
+
+    def _at(day_offset: int, hour: int = 9) -> datetime:
+        return datetime.combine(start + timedelta(days=day_offset), datetime.min.time()).replace(
+            hour=hour
+        )
+
+    # 未闭环且已超期
+    issue_service.create_issue(
+        db,
+        IssueCreate(
+            restroom_id=rooms[0].id,
+            title="赛事当天人流增大，地面清洁不及时",
+            description="体育中心东看台公厕中场休息时段地面有污渍。",
+            category=IssueCategory.CLEANING,
+            severity=IssueSeverity.SERIOUS,
+            reporter="胡明月",
+            assignee=rooms[0].manager,
+            report_time=_at(1, 10),
+            deadline=_at(2, 18),
+            initial_remark="保障巡查发现，待保洁班组处理",
+        ),
+    )
+    # 已完成闭环
+    done = issue_service.create_issue(
+        db,
+        IssueCreate(
+            restroom_id=rooms[1].id,
+            title="感应冲水器失灵",
+            description="政务中心一楼男卫一个感应冲水器无响应。",
+            category=IssueCategory.FACILITY,
+            severity=IssueSeverity.NORMAL,
+            reporter="邓晨曦",
+            assignee="维修班",
+            report_time=_at(2, 9),
+            deadline=_at(4, 18),
+            initial_remark="赛事保障期间设施报修",
+        ),
+    )
+    for target, operator, remark in [
+        (IssueStatus.PROCESSING, "维修班", "已到场更换感应器"),
+        (IssueStatus.REVIEWING, "维修班", "维修完成，提交验收"),
+        (IssueStatus.DONE, "邓晨曦", "现场复核正常"),
+    ]:
+        try:
+            issue_service.change_status(
+                db, done.id,
+                IssueStatusUpdate(to_status=target, operator=operator, remark=remark),
+            )
+        except Exception:  # noqa: BLE001  演示数据允许跳过
+            break
+
+    # 已关闭归档
+    closed = issue_service.create_issue(
+        db,
+        IssueCreate(
+            restroom_id=rooms[0].id,
+            title="洗手液补充不及时",
+            category=IssueCategory.CONSUMABLE,
+            severity=IssueSeverity.NORMAL,
+            reporter="张伟",
+            assignee=rooms[0].manager,
+            report_time=_at(3, 14),
+            deadline=_at(4, 12),
+        ),
+    )
+    for target, operator in [
+        (IssueStatus.PROCESSING, "保洁班组"),
+        (IssueStatus.REVIEWING, "保洁班组"),
+        (IssueStatus.DONE, "张伟"),
+        (IssueStatus.CLOSED, "值班长 周建国"),
+    ]:
+        try:
+            issue_service.change_status(
+                db, closed.id, IssueStatusUpdate(to_status=target, operator=operator)
+            )
+        except Exception:  # noqa: BLE001
+            break
 
 
 def _advance_issue(db: Session, issue_id: int, age_days: int, rng: random.Random) -> None:

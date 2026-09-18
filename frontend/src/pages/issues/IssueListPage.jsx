@@ -7,7 +7,7 @@ import DataTable from '../../components/DataTable.jsx';
 import Field from '../../components/Field.jsx';
 import PageHeader from '../../components/PageHeader.jsx';
 import Pagination from '../../components/Pagination.jsx';
-import { OverdueTag, SeverityTag, StatusTag } from '../../components/Tags.jsx';
+import { OverdueTag, SeverityTag, StatusTag, AssuranceLevelTag } from '../../components/Tags.jsx';
 import { useToast } from '../../components/Toast.jsx';
 import { useAsync } from '../../hooks/useAsync.js';
 import { useDictionaries } from '../../hooks/useDictionaries.js';
@@ -179,6 +179,18 @@ export default function IssueListPage() {
                   ),
               },
               { key: 'category', title: '分类' },
+              {
+                key: 'assurance',
+                title: '所属保障',
+                render: (row) =>
+                  row.assurance ? (
+                    <Link to={`/assurances/${row.assurance.id}`}>
+                      <AssuranceLevelTag level={row.assurance.level} />
+                    </Link>
+                  ) : (
+                    <span className="muted">-</span>
+                  ),
+              },
               {
                 key: 'severity',
                 title: '程度',

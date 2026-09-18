@@ -7,9 +7,14 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.constants import (
+    ASSURANCE_SHIFT_PLAN,
+    ASSURANCE_TRANSITIONS,
     INSPECTION_CHECK_ITEMS,
     INSPECTION_ITEM_MAX_SCORE,
     ISSUE_TRANSITIONS,
+    AssuranceLevel,
+    AssuranceStatus,
+    AssuranceType,
     IssueCategory,
     IssueSeverity,
     IssueStatus,
@@ -40,6 +45,11 @@ class Dictionaries(BaseModel):
     inspection_check_items: list[str]
     inspection_item_max_score: int
     issue_transitions: dict[str, list[str]]
+    assurance_type: list[str]
+    assurance_level: list[str]
+    assurance_status: list[str]
+    assurance_transitions: dict[str, list[str]]
+    assurance_level_frequency: dict[str, dict]
 
 
 @router.get("/dictionaries", response_model=Dictionaries, summary="枚举字典")
@@ -54,6 +64,14 @@ def get_dictionaries() -> Dictionaries:
         inspection_check_items=list(INSPECTION_CHECK_ITEMS),
         inspection_item_max_score=INSPECTION_ITEM_MAX_SCORE,
         issue_transitions={key: list(value) for key, value in ISSUE_TRANSITIONS.items()},
+        assurance_type=[item.value for item in AssuranceType],
+        assurance_level=[item.value for item in AssuranceLevel],
+        assurance_status=[item.value for item in AssuranceStatus],
+        assurance_transitions={key: list(value) for key, value in ASSURANCE_TRANSITIONS.items()},
+        assurance_level_frequency={
+            level: {"daily": plan["daily"], "by_shift": dict(plan["by_shift"])}
+            for level, plan in ASSURANCE_SHIFT_PLAN.items()
+        },
     )
 
 

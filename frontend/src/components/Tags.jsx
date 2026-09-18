@@ -1,6 +1,14 @@
-import { isOverdue, scoreTone, severityTone, statusTone } from '../utils/format.js';
+import { isOverdue, levelTone, scoreTone, severityTone, statusTone } from '../utils/format.js';
 
 export function StatusTag({ status }) {
+  return <span className={`tag ${statusTone(status)}`}>{status}</span>;
+}
+
+export function AssuranceLevelTag({ level }) {
+  return <span className={`tag ${levelTone(level)}`}>{level}</span>;
+}
+
+export function AssuranceStatusTag({ status }) {
   return <span className={`tag ${statusTone(status)}`}>{status}</span>;
 }
 

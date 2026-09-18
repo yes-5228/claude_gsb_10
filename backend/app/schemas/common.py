@@ -7,6 +7,13 @@ from pydantic import BaseModel, Field
 T = TypeVar("T")
 
 
+class NameValue(BaseModel):
+    """通用「名称-数值」统计项。"""
+
+    name: str
+    value: float = 0.0
+
+
 class PageMeta(BaseModel):
     total: int = Field(description="总记录数")
     page: int = Field(description="当前页码")
