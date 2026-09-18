@@ -49,6 +49,47 @@ class IssueStatus(StrEnum):
     CLOSED = "已关闭"
 
 
+class SupportCategory(StrEnum):
+    HOLIDAY = "节假日"
+    EVENT = "重大活动"
+
+
+class SupportLevel(StrEnum):
+    FIRST = "一级"
+    SECOND = "二级"
+    THIRD = "三级"
+
+
+class SupportStatus(StrEnum):
+    PREPARING = "筹备中"
+    ACTIVE = "进行中"
+    FINISHED = "已结束"
+
+
+# 保障等级规则：等级越高，每日巡查频次越高、值守班次越密
+SUPPORT_LEVEL_RULES: dict[str, dict] = {
+    SupportLevel.FIRST: {
+        "inspections_per_day": 3,
+        "shifts": [Shift.MORNING.value, Shift.MIDDLE.value, Shift.NIGHT.value],
+    },
+    SupportLevel.SECOND: {
+        "inspections_per_day": 2,
+        "shifts": [Shift.MORNING.value, Shift.NIGHT.value],
+    },
+    SupportLevel.THIRD: {
+        "inspections_per_day": 1,
+        "shifts": [Shift.MORNING.value],
+    },
+}
+
+# 保障方案状态流转：筹备中 -> 进行中 -> 已结束
+SUPPORT_PLAN_TRANSITIONS: dict[str, list[str]] = {
+    SupportStatus.PREPARING: [SupportStatus.ACTIVE, SupportStatus.FINISHED],
+    SupportStatus.ACTIVE: [SupportStatus.FINISHED],
+    SupportStatus.FINISHED: [],
+}
+
+
 # 整改流转规则：当前状态 -> 允许流转到的状态
 ISSUE_TRANSITIONS: dict[str, list[str]] = {
     IssueStatus.PENDING: [IssueStatus.PROCESSING, IssueStatus.CLOSED],

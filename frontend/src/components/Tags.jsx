@@ -28,3 +28,9 @@ export function GradeTag({ grade }) {
           : 'tag-danger';
   return <span className={`tag ${tone}`}>{grade || '未评级'}</span>;
 }
+
+export function SupportLevelTag({ level }) {
+  const tone =
+    level === '一级' ? 'tag-danger' : level === '二级' ? 'tag-warning' : 'tag-info';
+  return <span className={`tag ${tone}`}>{level}</span>;
+}

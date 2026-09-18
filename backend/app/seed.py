@@ -1,7 +1,7 @@
 """演示数据生成：首次启动时写入，便于快速体验各模块。"""
 
 import random
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -14,12 +14,15 @@ from app.core.constants import (
     RestroomGrade,
     RestroomStatus,
     Shift,
+    SupportCategory,
+    SupportLevel,
 )
 from app.models import Restroom
 from app.schemas.inspection import InspectionCreate, InspectionItem
 from app.schemas.issue import IssueCreate, IssueStatusUpdate
 from app.schemas.restroom import RestroomCreate
-from app.services import inspection_service, issue_service, restroom_service
+from app.schemas.support import SupportPlanCreate
+from app.services import inspection_service, issue_service, restroom_service, support_service
 
 RANDOM_SEED = 20240913
 
@@ -190,7 +193,63 @@ def seed_database(db: Session, *, reset: bool = False) -> int:
         created += 1
         _advance_issue(db, issue.id, age_days, rng)
 
+    _seed_support_plans(db, now)
+
     return created
+
+
+def _seed_support_plans(db: Session, now: datetime) -> None:
+    """写入节假日/重大活动保障演示数据：已结束、进行中、筹备中各一个。"""
+    today = now.date()
+
+    # 已结束的中秋保障：走完 启动 -> 结束 全流程，自动生成值守与小结
+    mid_autumn = support_service.create_plan(
+        db,
+        SupportPlanCreate(
+            name="中秋假期公厕保障",
+            category=SupportCategory.HOLIDAY,
+            level=SupportLevel.SECOND,
+            start_date=today - timedelta(days=8),
+            end_date=today - timedelta(days=6),
+            districts=["城东区", "老城区"],
+            requirements="重点保障景区、商圈周边公厕，加密保洁巡查频次，耗材随缺随补，问题即报即改。",
+            staff_pool=["张伟", "刘洋", "王秀兰", "郑淑珍"],
+        ),
+    )
+    support_service.activate_plan(db, mid_autumn.id)
+    support_service.finish_plan(db, mid_autumn.id)
+
+    # 进行中的周末保障：覆盖今天，可看到实时的值守与问题汇总
+    weekend = support_service.create_plan(
+        db,
+        SupportPlanCreate(
+            name="周末客流高峰保障",
+            category=SupportCategory.EVENT,
+            level=SupportLevel.FIRST,
+            start_date=today - timedelta(days=1),
+            end_date=today + timedelta(days=2),
+            districts=["城西区", "滨江新区"],
+            requirements="体育中心、火车站周边客流集中，实行早中晚三班值守，巡查每日不少于 3 次。",
+            staff_pool=["胡明月", "邓晨曦", "马晓峰", "杨柳", "陈志远", "周晓燕"],
+        ),
+    )
+    support_service.activate_plan(db, weekend.id)
+
+    # 筹备中的国庆保障：尚未启动，演示筹备状态
+    support_service.create_plan(
+        db,
+        SupportPlanCreate(
+            name="国庆黄金周公厕保障",
+            category=SupportCategory.HOLIDAY,
+            level=SupportLevel.FIRST,
+            start_date=date(today.year, 10, 1),
+            end_date=date(today.year, 10, 7),
+            districts=["城东区", "城西区", "老城区", "滨江新区"],
+            requirements="黄金周期间全员在岗，重点公厕每日巡查不少于 3 次，"
+            "紧急问题 2 小时内响应，每日汇总保障情况。",
+            staff_pool=["张伟", "刘洋", "胡明月", "邓晨曦", "马晓峰", "杨柳"],
+        ),
+    )
 
 
 def _advance_issue(db: Session, issue_id: int, age_days: int, rng: random.Random) -> None:

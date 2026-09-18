@@ -7,6 +7,8 @@ import IssueDetailPage from './pages/issues/IssueDetailPage.jsx';
 import IssueListPage from './pages/issues/IssueListPage.jsx';
 import RestroomDetailPage from './pages/restrooms/RestroomDetailPage.jsx';
 import RestroomListPage from './pages/restrooms/RestroomListPage.jsx';
+import SupportDetailPage from './pages/support/SupportDetailPage.jsx';
+import SupportListPage from './pages/support/SupportListPage.jsx';
 
 export default function App() {
   return (
@@ -18,6 +20,8 @@ export default function App() {
         <Route path="/inspections" element={<InspectionListPage />} />
         <Route path="/issues" element={<IssueListPage />} />
         <Route path="/issues/:issueId" element={<IssueDetailPage />} />
+        <Route path="/support" element={<SupportListPage />} />
+        <Route path="/support/:planId" element={<SupportDetailPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

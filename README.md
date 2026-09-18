@@ -10,6 +10,7 @@
 | 公厕台账 | `/restrooms`、`/restrooms/:id` | 台账增删改查、区域与状态筛选、公厕详情（档案 + 历史巡查 + 历史问题）、关联数据删除保护 |
 | 保洁巡查 | `/inspections` | 8 项检查项打分、自动折算百分制得分与等级、班次/日期/结论筛选、巡查详情、一键转问题上报 |
 | 问题上报 | `/issues`、`/issues/:id` | 问题上报（可关联巡查记录）、分类/程度/期限、整改流程流转、整改轨迹时间线、超期预警、追加跟进记录 |
+| 保障管理 | `/support`、`/support/:id` | 节假日/重大活动保障方案、按等级自动加密巡查频次、自动生成值守安排、保障期间问题单独汇总、保障情况小结 |
 
 其他页面不会互相混杂：台账、巡查、问题各自独立成页，详情页再做跨模块的关联展示。
 
@@ -25,11 +26,11 @@
 .
 ├── backend
 │   ├── app
-│   │   ├── api/v1/endpoints      # 路由层：restrooms / inspections / issues / stats / meta
+│   │   ├── api/v1/endpoints      # 路由层：restrooms / inspections / issues / support / stats / meta
 │   │   ├── core                 # 配置、数据库、业务常量、领域异常
-│   │   ├── models               # ORM 模型：公厕、巡查、问题、整改流水
+│   │   ├── models               # ORM 模型：公厕、巡查、问题、整改流水、保障方案与值守
 │   │   ├── schemas              # Pydantic 出入参模型
-│   │   ├── services             # 业务规则层：台账、巡查、问题整改、评分、统计
+│   │   ├── services             # 业务规则层：台账、巡查、问题整改、评分、统计、保障
 │   │   ├── seed.py              # 演示数据生成
 │   │   └── main.py              # 应用入口（含异常处理、CORS、健康检查）
 │   ├── tests                    # pytest 接口测试
@@ -40,7 +41,7 @@
 │   │   ├── api                  # 按资源拆分的接口封装 + 统一 fetch 客户端
 │   │   ├── components           # 通用组件：表格、分页、弹窗、标签、图表、时间线等
 │   │   ├── hooks                # useAsync / useListQuery / useDictionaries
-│   │   ├── pages                # dashboard / restrooms / inspections / issues 四个模块
+│   │   ├── pages                # dashboard / restrooms / inspections / issues / support 五个模块
 │   │   ├── utils                # 时间格式化、评分换算
 │   │   └── styles/global.css
 │   ├── nginx.conf
@@ -137,6 +138,14 @@ npm run dev
 | GET | `/issues/{id}/transitions` | 当前状态可执行的流转动作 |
 | POST | `/issues/{id}/transitions` | 推进整改状态（越级流转返回 400） |
 | POST | `/issues/{id}/records` | 追加跟进记录（不改变状态） |
+| GET | `/support-plans` | 保障方案查询（keyword/category/level/status/日期区间） |
+| POST | `/support-plans` | 新增保障方案，编号留空自动生成 `BZ-YYYYMMDD-001` |
+| GET/PATCH/DELETE | `/support-plans/{id}` | 详情（含值守安排与重点公厕）/ 更新 / 删除 |
+| POST | `/support-plans/{id}/activate` | 启动保障：进入进行中并按等级自动生成值守安排 |
+| POST | `/support-plans/{id}/finish` | 结束保障：自动生成保障情况小结草稿 |
+| POST | `/support-plans/{id}/duties/generate` | 按等级班次重新生成值守安排（覆盖现有） |
+| GET | `/support-plans/{id}/issues` | 保障期间、保障范围内公厕的问题单独汇总 |
+| GET | `/support-plans/{id}/summary` | 保障情况小结（应巡/实巡/覆盖率、问题统计、小结文本） |
 | GET | `/stats/overview` | 核心指标 |
 | GET | `/stats/dashboard` | 看板聚合数据（趋势、分布、区域、排行、最新记录） |
 | GET | `/meta/dictionaries` | 枚举字典（状态、分类、程度、检查项、流转规则） |
@@ -149,11 +158,14 @@ npm run dev
 - **问题编号**：`WT-` + 上报日期 + 当日三位流水号。
 - **整改闭环**：`待整改 → 整改中 → 待验收 → 已完成 → 已关闭`；`待验证` 阶段可被驳回退回 `整改中`，`待整改/整改中` 可直接作废关闭。每次流转都会写入一条整改流水（动作、原状态、新状态、操作人、说明），详情页以时间线呈现。
 - **超期预警**：整改期限早于当前时间且状态仍处于未闭环（待整改/整改中/待验收）时，列表与详情页显示「已超期」，看板统计超期数量。
+- **保障等级与频次**：保障方案分一级/二级/三级，等级决定加密后的巡查频次与值守班次——一级每日 3 次（早中晚三班）、二级每日 2 次（早晚班）、三级每日 1 次（早班），创建时自动带出、可手工调整。启动保障时按「保障时段 × 班次」自动生成值守安排，值守人员按名单轮值，名单为空时取重点公厕的保洁责任人。
+- **保障范围与问题汇总**：保障范围 = 重点区域内的公厕 ∪ 额外指定的重点公厕；保障期间该范围内上报的问题在方案详情中单独汇总，不影响问题整改模块的全量视图。
+- **保障小结**：小结统计口径为「保障时段内、保障范围内」，包含应巡次数（天数 × 公厕数 × 每日频次）、实巡次数、巡查覆盖率、巡查均分、问题总量/整改率/未闭环清单，并自动生成小结文本；结束保障时写入方案，可人工修改后保存。
 - **删除保护**：删除公厕时若已存在巡查或问题记录，接口返回 409 并提示数量，需要显式 `force=true` 才会级联删除；前端会二次确认。
 
 ## 演示数据
 
-`SEED_ON_STARTUP=true`（默认）且数据库为空时，会自动写入：10 座公厕（4 个区域、三类等级、含维修/停用状态）、近 14 天约 90 条巡查记录、13 条不同整改阶段的问题及其完整整改轨迹。数据由固定随机种子生成，结果可复现；如需重置，删除 `backend/data/app.db`（或 `docker compose down -v`）后重启即可。
+`SEED_ON_STARTUP=true`（默认）且数据库为空时，会自动写入：10 座公厕（4 个区域、三类等级、含维修/停用状态）、近 14 天约 90 条巡查记录、13 条不同整改阶段的问题及其完整整改轨迹，以及 3 个保障方案（已结束的中秋保障含值守与小结、进行中的周末保障、筹备中的国庆保障）。数据由固定随机种子生成，结果可复现；如需重置，删除 `backend/data/app.db`（或 `docker compose down -v`）后重启即可。
 
 ## 测试与验证
 

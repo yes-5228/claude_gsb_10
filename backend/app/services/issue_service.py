@@ -68,6 +68,7 @@ def list_issues(
     db: Session,
     *,
     restroom_id: int | None = None,
+    restroom_ids: list[int] | None = None,
     inspection_id: int | None = None,
     district: str | None = None,
     status: str | None = None,
@@ -90,6 +91,8 @@ def list_issues(
         )
     if restroom_id:
         stmt = stmt.where(Issue.restroom_id == restroom_id)
+    if restroom_ids:
+        stmt = stmt.where(Issue.restroom_id.in_(restroom_ids))
     if inspection_id:
         stmt = stmt.where(Issue.inspection_id == inspection_id)
     if status:

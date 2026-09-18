@@ -10,12 +10,16 @@ from app.core.constants import (
     INSPECTION_CHECK_ITEMS,
     INSPECTION_ITEM_MAX_SCORE,
     ISSUE_TRANSITIONS,
+    SUPPORT_LEVEL_RULES,
     IssueCategory,
     IssueSeverity,
     IssueStatus,
     RestroomGrade,
     RestroomStatus,
     Shift,
+    SupportCategory,
+    SupportLevel,
+    SupportStatus,
 )
 from app.core.database import get_db
 from app.services import inspection_service
@@ -40,6 +44,10 @@ class Dictionaries(BaseModel):
     inspection_check_items: list[str]
     inspection_item_max_score: int
     issue_transitions: dict[str, list[str]]
+    support_category: list[str]
+    support_level: list[str]
+    support_status: list[str]
+    support_level_rules: dict[str, dict]
 
 
 @router.get("/dictionaries", response_model=Dictionaries, summary="枚举字典")
@@ -54,6 +62,10 @@ def get_dictionaries() -> Dictionaries:
         inspection_check_items=list(INSPECTION_CHECK_ITEMS),
         inspection_item_max_score=INSPECTION_ITEM_MAX_SCORE,
         issue_transitions={key: list(value) for key, value in ISSUE_TRANSITIONS.items()},
+        support_category=[item.value for item in SupportCategory],
+        support_level=[item.value for item in SupportLevel],
+        support_status=[item.value for item in SupportStatus],
+        support_level_rules={level.value: rule for level, rule in SUPPORT_LEVEL_RULES.items()},
     )
 
 
